@@ -1,0 +1,5 @@
+node_modules/
+renders/
+dist/
+dsp/build/
+web/wasm/midm.wasm

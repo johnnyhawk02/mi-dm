@@ -1,0 +1,69 @@
+# Builds the drum DSP to WebAssembly, tests it, builds the page and publishes it to GitHub Pages,
+# on every push to main.
+name: pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  EMSDK_VERSION: 7.0.0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Native build of the DSP (plain C++, no Emscripten)
+        run: |
+          cmake -S dsp -B dsp/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build dsp/build
+          dsp/build/midm_render_test
+
+      - name: Install Emscripten
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$HOME/emsdk"
+          "$HOME/emsdk/emsdk" install "$EMSDK_VERSION"
+          "$HOME/emsdk/emsdk" activate "$EMSDK_VERSION"
+
+      - name: Build the WebAssembly
+        run: |
+          . "$HOME/emsdk/emsdk_env.sh"
+          sh web/wasm/build.sh
+
+      - name: Build the page
+        run: node build.mjs
+
+      - name: Test
+        run: npm test
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
