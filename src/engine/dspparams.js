@@ -39,10 +39,10 @@ export const MODEL_NAMES = ["analog bd","synth bd","analog sd","synth sd","hihat
 // master clipper (dsp/midm/master_clipper.cc): [id, min, max, default, curve, label]
 export const CLIP_SPEC = [
   ["on",0,1,0,"int","on"],
-  ["thresh",-60,0,-18,"lin","thresh"],
+  ["thresh",-100,0,-27,"lin","thresh"],
   ["ratio",1,50,10,"exp","ratio"],
-  ["input",-30,18,0,"lin","input"],
-  ["output",-30,12,0,"lin","output"],
+  ["input",-30,6,0,"lin","input"],
+  ["output",-30,6,0,"lin","output"],
   ["flip",0,1,0,"int","flip"],
   ["rectify",0,1,0,"int","rectify"],
   ["mix",0,1,1,"lin","mix"],

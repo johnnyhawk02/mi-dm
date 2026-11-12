@@ -1,0 +1,12 @@
+chow.h is the distortion DSP of CHOW, "a maximally truculent distortion effect" by Jatin Chowdhury:
+https://github.com/Chowdhury-DSP/CHOW (commit 2fb7a152c321976d1d7f26b56910d951cda7b340),
+Source/PluginProcessor.cpp: ChowAudioProcessor::chow() and the gain staging of processBlock().
+Licence: GNU General Public License v3 (LICENSE in this folder).
+
+Changes made for mi/dm (2026-11-12), as the GPL asks:
+- taken out of the JUCE AudioProcessor into a plain C++ class (chow::ChowProcessor) with no JUCE dependency: the
+  AudioParameterFloat/Bool members became plain floats/bools set through SetParameter(), and
+  juce::Decibels::decibelsToGain(x) became std::pow(10, x / 20) (the same for the ranges used);
+- the dB-to-gain conversions happen when a parameter changes instead of once per sample;
+- Process() works in place on a left and a right buffer (the plugin looped over its channels).
+The clipping arithmetic in chow() is unchanged.

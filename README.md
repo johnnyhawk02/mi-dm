@@ -33,11 +33,12 @@ or click the model box above its level.
 
 ## Master clipper
 
-The mstr page has a master-bus clipper: it squashes one half of the waveform above a threshold by a
-ratio (rectify cuts it flat, flip works on the other half), with input, output and mix, and a curve
-that shows what it does. It is mi/dm's own C++ (`dsp/midm/master_clipper.*`, MIT), written after the
-behaviour of Jatin Chowdhury's [CHOW](https://github.com/Chowdhury-DSP/CHOW) distortion plugin. It
-contains none of CHOW's code, which is GPL-3.0. It is compiled into the same WebAssembly as the drums.
+The mstr page has a master-bus clipper: Jatin Chowdhury's
+[CHOW](https://github.com/Chowdhury-DSP/CHOW) distortion (GPL-3.0). It squashes one half of the
+waveform above a threshold by a ratio (rect cuts it flat, flip works on the other half), with CHOW's
+input and output gain, plus an on switch, a mix knob and a curve that shows what it does. CHOW's C++
+is in `dsp/chow/` (taken out of its JUCE plugin, the clipping code unchanged; `SOURCE.txt` lists the
+changes), wrapped by `dsp/midm/master_clipper.*` and compiled into the same WebAssembly as the drums.
 
 ## Layout
 
@@ -65,11 +66,15 @@ tests and publishes `dist/` to GitHub Pages on every push to main.
 
 ## Licence and credits
 
-mi/dm is MIT licensed (`LICENSE`).
+mi/dm is licensed under the GNU General Public License v3 (`LICENSE`), because it includes CHOW,
+which is GPL-3.0. Up to commit c4dbe19 it was MIT.
 
 The drum models are from Plaits by Emilie Gillet, copyright 2016 Emilie Gillet, and use stmlib,
 copyright 2012 Emilie Gillet, both MIT licensed. Their copyright notices and licence text are kept
 with the code in `dsp/plaits/LICENSE`, `dsp/stmlib/LICENSE` and every source file's header.
-mi/dm is not affiliated with or endorsed by Mutable Instruments or Emilie Gillet.
+The master clipper is CHOW by Jatin Chowdhury (https://github.com/Chowdhury-DSP/CHOW), GPL-3.0, in
+`dsp/chow/` with its licence.
+
+mi/dm is not affiliated with or endorsed by Mutable Instruments, Emilie Gillet or Chowdhury DSP.
 
 The VT323 font (SIL Open Font License) is embedded in the page.

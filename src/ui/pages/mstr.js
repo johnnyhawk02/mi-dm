@@ -34,11 +34,11 @@ function buildMstr() {
   r.append(knob('m.mVol'), knob('m.mHp'), meters);
   out.append(r);
   const about = sect('about');
-  about.append(h('div', '', `<p style="font-size:19px;line-height:1.25">the drums are the bass drum, snare drum and hi-hat models from emilie gillet's plaits dsp (mit licence), the original c++ compiled to webassembly and run in an audio worklet at 48 khz. every argument each model's render function takes has its own knob on the voice page. the clipper is mi/dm's own c++ (mit), after the behaviour of jatin chowdhury's chow plugin, in the same webassembly.</p>`));
+  about.append(h('div', '', `<p style="font-size:19px;line-height:1.25">the drums are the bass drum, snare drum and hi-hat models from emilie gillet's plaits dsp (mit licence), the original c++ compiled to webassembly and run in an audio worklet at 48 khz. every argument each model's render function takes has its own knob on the voice page. the clipper is jatin chowdhury's chow distortion (gpl-3.0), its c++ in the same webassembly. mi/dm is gpl-3.0.</p>`));
   page.append(buildClipper(), out, about);
   return page;
 }
-// master clipper: one polarity squashed above the threshold by the ratio (rectify holds it there)
+// master clipper (CHOW): one polarity squashed above the threshold by the ratio (rectify holds it there)
 function buildClipper() {
   const s = sect('clipper');
   s.head.append(h('span', 'sp'), toggle('m.clipOn', 'on', 'sm'), toggle('m.clipFlip', 'flip', 'sm'), toggle('m.clipRectify', 'rectify', 'sm'));
@@ -83,7 +83,7 @@ function buildClipper() {
   };
   for (const id of ['clipOn', 'clipThresh', 'clipRatio', 'clipInput', 'clipOutput', 'clipFlip', 'clipRectify', 'clipMix']) watch('m.' + id, draw);
   draw();
-  s.append(r, h('div', 'dim', '<span style="font-size:16px">squashes one half of the waveform above the threshold by the ratio; rectify cuts it flat; flip works on the other half. lopsided and buzzy, after the chow plugin.</span>'));
+  s.append(r, h('div', 'dim', '<span style="font-size:16px">squashes one half of the waveform above the threshold by the ratio; rectify cuts it flat; flip works on the other half. lopsided and buzzy: jatin chowdhury\'s chow.</span>'));
   return s;
 }
 

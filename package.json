@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "scripts": {
     "test": "node test/render.test.mjs && node test/seq.test.mjs && node test/presets.test.mjs",
     "build": "sh web/wasm/build.sh && node build.mjs",

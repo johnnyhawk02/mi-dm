@@ -3,28 +3,24 @@
 #include "midm/master_clipper.h"
 
 #include <algorithm>
-#include <cmath>
 
 namespace midm {
 
+// CHOW's own ranges and defaults, plus on and mix
 const ParameterInfo kClipperParameters[NUM_CLIPPER_PARAMETERS] = {
   { "on", "on", 0.0f, 1.0f, 0.0f, TAPER_STEPPED, -1 },
-  { "thresh", "thresh", -60.0f, 0.0f, -18.0f, TAPER_LINEAR, -1 },
+  { "thresh", "thresh", -100.0f, 0.0f, -27.0f, TAPER_LINEAR, -1 },
   { "ratio", "ratio", 1.0f, 50.0f, 10.0f, TAPER_EXPONENTIAL, -1 },
-  { "input", "input", -30.0f, 18.0f, 0.0f, TAPER_LINEAR, -1 },
-  { "output", "output", -30.0f, 12.0f, 0.0f, TAPER_LINEAR, -1 },
+  { "input", "input", -30.0f, 6.0f, 0.0f, TAPER_LINEAR, -1 },
+  { "output", "output", -30.0f, 6.0f, 0.0f, TAPER_LINEAR, -1 },
   { "flip", "flip", 0.0f, 1.0f, 0.0f, TAPER_STEPPED, -1 },
   { "rectify", "rectify", 0.0f, 1.0f, 0.0f, TAPER_STEPPED, -1 },
   { "mix", "mix", 0.0f, 1.0f, 1.0f, TAPER_LINEAR, -1 },
 };
 
-namespace {
-inline float DbToGain(float db) { return std::pow(10.0f, db * 0.05f); }
-}  // namespace
-
 void MasterClipper::Init() {
+  chow_.Init();
   for (int i = 0; i < NUM_CLIPPER_PARAMETERS; ++i) {
-    parameters_[i] = -1e9f;  // force every update below
     SetParameter(i, kClipperParameters[i].def);
   }
 }
@@ -39,12 +35,15 @@ void MasterClipper::SetParameter(int parameter, float value) {
     value = static_cast<float>(static_cast<int>(value + 0.5f));
   }
   parameters_[parameter] = value;
-  const float* p = parameters_;
-  threshold_ = DbToGain(p[CLIP_THRESHOLD]);
-  slope_ = p[CLIP_RECTIFY] >= 0.5f ? 0.0f : 1.0f / std::max(p[CLIP_RATIO], 1.0f);
-  in_gain_ = DbToGain(p[CLIP_INPUT]);
-  out_gain_ = DbToGain(p[CLIP_OUTPUT]);
-  sign_ = p[CLIP_FLIP] >= 0.5f ? -1.0f : 1.0f;
+  switch (parameter) {
+    case CLIP_THRESHOLD: chow_.SetThreshDB(value); break;
+    case CLIP_RATIO: chow_.SetRatio(value); break;
+    case CLIP_INPUT: chow_.SetInGainDB(value); break;
+    case CLIP_OUTPUT: chow_.SetOutGainDB(value); break;
+    case CLIP_FLIP: chow_.SetFlip(value >= 0.5f); break;
+    case CLIP_RECTIFY: chow_.SetRect(value >= 0.5f); break;
+    default: break;
+  }
 }
 
 float MasterClipper::GetParameter(int parameter) const {
@@ -54,26 +53,31 @@ float MasterClipper::GetParameter(int parameter) const {
   return parameters_[parameter];
 }
 
-inline float MasterClipper::Clip(float x) const {
-  // work on the chosen polarity only; the other half passes untouched
-  const float s = x * sign_;
-  if (s <= threshold_) {
-    return x;
-  }
-  return sign_ * (threshold_ + (s - threshold_) * slope_);
-}
-
 void MasterClipper::Process(float* left, float* right, size_t size) {
   if (parameters_[CLIP_ON] < 0.5f) {
     return;
   }
   const float wet = parameters_[CLIP_MIX];
+  if (wet >= 1.0f) {
+    chow_.Process(left, right, size);
+    return;
+  }
+  // dry/wet: CHOW on a copy, a block at a time
   const float dry = 1.0f - wet;
-  for (size_t i = 0; i < size; ++i) {
-    const float l = left[i];
-    const float r = right[i];
-    left[i] = dry * l + wet * Clip(l * in_gain_) * out_gain_;
-    right[i] = dry * r + wet * Clip(r * in_gain_) * out_gain_;
+  float l[32];
+  float r[32];
+  while (size) {
+    const size_t n = std::min(size, static_cast<size_t>(32));
+    std::copy(left, left + n, l);
+    std::copy(right, right + n, r);
+    chow_.Process(l, r, n);
+    for (size_t i = 0; i < n; ++i) {
+      left[i] = dry * left[i] + wet * l[i];
+      right[i] = dry * right[i] + wet * r[i];
+    }
+    left += n;
+    right += n;
+    size -= n;
   }
 }
 

@@ -24,9 +24,14 @@ build (a JUCE VST3 plugin, a command-line renderer) unchanged.
   engine's overdrive drive). `kParameters` lists each one's id, label, range, default and taper, so a
   host can build its controls from it; the web page reads the same table out of the WebAssembly.
 
-- `midm/master_clipper.h`, `midm/master_clipper.cc`: the master-bus clipper (mi/dm's own code, MIT,
-  after the behaviour of the CHOW plugin, none of its GPL code): `Init`, `SetParameter`, and
-  `Process(left, right, n)` in place. `kClipperParameters` lists its controls.
+- `chow/`: the distortion DSP of Jatin Chowdhury's CHOW plugin (GPL-3.0, `chow/LICENSE`), taken out
+  of JUCE into plain C++ with the clipping code unchanged (`chow/SOURCE.txt` lists the changes).
+- `midm/master_clipper.h`, `midm/master_clipper.cc`: the master bus: CHOW plus an on switch and a
+  dry/wet mix. `Init`, `SetParameter`, and `Process(left, right, n)` in place. `kClipperParameters`
+  lists its controls.
+
+Because CHOW is GPL-3.0, this folder as a whole (and anything built from it, such as a plugin) is
+GPL-3.0; Plaits and stmlib stay MIT inside it.
 
 ## Building
 
