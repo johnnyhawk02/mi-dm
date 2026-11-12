@@ -1,0 +1,2 @@
+The files in this folder are from stmlib, https://github.com/pichenettes/stmlib
+(commit d18def816c51d1da0c108236928b2bbd25c17481), unchanged. Licence: LICENSE (MIT, copyright Emilie Gillet).

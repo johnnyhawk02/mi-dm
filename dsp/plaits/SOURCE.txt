@@ -1,0 +1,3 @@
+The files in this folder are from Plaits, part of https://github.com/pichenettes/eurorack
+(plaits/, commit f4cfa7697095a28d292bff758beb51deb49b5a86), unchanged. Licence: LICENSE (MIT,
+copyright Emilie Gillet).
