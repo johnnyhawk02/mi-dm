@@ -1,0 +1,263 @@
+// mi/dm — PERF: 24 assignable knobs (MIDI CC 1..24) and the step sequencer strip under them.
+
+const PERF_DEFAULT = [
+  'm.bpm', 'm.swDepth', 'm.accent', 'gen.energy',
+  'v0.abdFreq', 'v0.abdDecay', 'v0.abdAtkFm', 'v0.abdSelfFm',
+  'v1.sbdFreq', 'v1.sbdDecay', 'v2.ssdFreq', 'v2.ssdDecay',
+  'v3.asdFreq', 'v3.asdDecay', 'v3.asdSnappy', 'v3.asdTone',
+  'v4.hh2Freq', 'v4.hh2Decay', 'v5.hh1Decay', 'v5.hh1Open',
+  'v0.abdTone', 'v5.hh1Tone', 'v0.abdDrive', 'm.mHp',
+];
+S.perf = PERF_DEFAULT.slice();
+const perfKnobs = [];
+
+function buildPerf() {
+  const box = $('perf');
+  box.innerHTML = '';
+  const head = h('h3', '', '<span>perf</span><span class="dim" style="font-size:16px">midi cc 1-24</span>');
+  const grid = h('div', 'kgrid');
+  for (let i = 0; i < 24; i++) {
+    const k = knob(S.perf[i], { label: perfLabel(S.perf[i]) });
+    k.dataset.cc = i + 1;
+    perfKnobs.push(k);
+    grid.append(k);
+  }
+  box.append(head, grid);
+}
+function perfLabel(key) {
+  if (!key) return '---';
+  const g = keyG(key);
+  if (g < 0 || g >= NV_) return fullName(key);
+  return SHORT[Math.floor(g / NP)] + ' ' + labelOf(g);
+}
+function setPerf(i, key) {
+  S.perf[i] = key;
+  const old = perfKnobs[i];
+  const k = knob(key, { label: perfLabel(key) });
+  k.dataset.cc = i + 1;
+  old.replaceWith(k);
+  perfKnobs[i] = k;
+  dirty();
+}
+function assignDialog(key) {
+  const body = h('div', 'kgrid');
+  body.style.gridTemplateColumns = 'repeat(4, 1fr)';
+  S.perf.forEach((k, i) => {
+    const b = btn(`${i + 1}: ${perfLabel(k)}`, 'sm', () => {
+      setPerf(i, key);
+      closeDialog();
+      toast(`perf ${i + 1} = ${perfLabel(key)}`);
+    });
+    body.append(b);
+  });
+  dialog(`assign ${fullName(key)} to`, body);
+}
+
+// ---- step sequencer strip
+let seqPage = 0;
+function laneModel(name, label, steps, get, set, fmtf, def) {
+  return { key: 'lane.' + name, g: -1, steps, noSelect: true, label, def,
+    get: () => { const ln = curLane(); return ln ? get(ln) : def; },
+    set: (n) => { const l = ensureLane(); if (l < 0) return; set(S.lanes[l], n); sendLane(l); },
+    text: () => { const ln = curLane(); return ln ? fmtf(ln) : ''; }, mod: () => null };
+}
+function selG() {
+  return S.sel ? keyG(S.sel) : -1;
+}
+function curLane() {
+  const g = selG();
+  const l = g >= 0 ? laneOf(g) : -1;
+  return l >= 0 ? S.lanes[l] : null;
+}
+function ensureLane() {
+  const g = selG();
+  if (g < 0) return -1;
+  const l = newLane(g);
+  if (l < 0) toast('all 32 sequencers in use');
+  return l;
+}
+function openLane(g) {
+  const l = newLane(g);
+  if (l >= 0) sendLane(l);
+}
+function removeLane(g) {
+  const l = laneOf(g);
+  if (l < 0) return;
+  S.lanes[l] = null;
+  post({ t: 'lane', l, g: -1 });
+  redraw(gKey(g));
+  redraw('lane');
+}
+
+let envBrush = 0;
+function buildSeq() {
+  const el = $('seq');
+  el.innerHTML = '';
+  const top = h('div', 'top');
+  const name = h('div', 'name', 'seq');
+  const pages = [0, 1, 2, 3].map((p) => {
+    const b = btn(String(p + 1), 'sm', () => { seqPage = p; drawSeq(); });
+    return b;
+  });
+  const clear = btn('clear', 'sm', () => { const g = selG(); if (g >= 0) removeLane(g); });
+  // mode: slider steps, or an envelope fired on each step
+  const modeB = btn('slide', 'sm', () => {
+    const l = ensureLane();
+    if (l < 0) return;
+    const ln = S.lanes[l];
+    ln.mode = ln.mode ? 0 : 1;
+    if (ln.mode && !ln.steps.some((x, i) => i < ln.len && x)) envRandom(ln.len, ln.steps, ln.shapes, (Math.random() * 1e9) | 0);
+    sendLane(l);
+  });
+  modeB.title = 'slide: each step holds a value · env: each step fires an envelope';
+  top.append(name, modeB, ...pages, clear);
+  const steps = h('div', 'steps');
+  const cells = [];
+  for (let i = 0; i < 16; i++) {
+    const c = h('div', 'st', '<i></i><svg viewBox="0 0 100 100" preserveAspectRatio="none"><path/></svg>');
+    cells.push(c);
+    steps.append(c);
+  }
+  steps.append(h('div', 'zero'));
+  // slew overlay: the curve the knob actually follows, with slew smoothing the steps
+  const slewSvg = h('div', 'slew', '<svg viewBox="0 0 1600 100" preserveAspectRatio="none"><path/></svg>');
+  steps.append(slewSvg);
+  const slewPath = slewSvg.querySelector('path');
+  // paint steps by dragging
+  const paint = (e) => {
+    const r = steps.getBoundingClientRect();
+    const i = clamp(Math.floor(((e.clientX - r.left) / r.width) * 16), 0, 15);
+    const y = clamp(1 - (2 * (e.clientY - r.top)) / r.height, -1, 1);
+    const l = ensureLane();
+    if (l < 0) return;
+    const ln = S.lanes[l];
+    const si = seqPage * 16 + i;
+    ln.steps[si] = Math.abs(y) < 0.06 ? 0 : y;
+    if (ln.mode && ln.steps[si]) ln.shapes[si] = envBrush;
+    if (si >= ln.len) { ln.len = si + 1; }
+    sendLane(l);
+  };
+  // envelope mode: right-click a step to cycle its shape
+  steps.addEventListener('contextmenu', (e) => {
+    const ln = curLane();
+    if (!ln || !ln.mode) return;
+    e.preventDefault();
+    const r = steps.getBoundingClientRect();
+    const si = seqPage * 16 + clamp(Math.floor(((e.clientX - r.left) / r.width) * 16), 0, 15);
+    ln.shapes[si] = (ln.shapes[si] + 1) % ENV_SHAPES.length;
+    envBrush = ln.shapes[si];
+    sendLane(laneOf(ln.g));
+  });
+  steps.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    if (selG() < 0) return;
+    steps.setPointerCapture(e.pointerId);
+    paint(e);
+    const mv = (ev) => (ev.buttons ? paint(ev) : end());
+    const end = () => steps.removeEventListener('pointermove', mv);
+    steps.addEventListener('pointermove', mv);
+    steps.addEventListener('pointerup', end, { once: true });
+    steps.addEventListener('pointercancel', end, { once: true });
+  });
+  const ctl = h('div', 'ctl');
+  const SP = SPEEDS;
+  ctl.append(
+    knob(null, { model: laneModel('len', 'length', 63, (ln) => (ln.len - 2) / 62, (ln, n) => (ln.len = 2 + Math.round(n * 62)), (ln) => ln.len, 14 / 62), watch: 'lane' }),
+    knob(null, { model: laneModel('slew', 'slew', 0, (ln) => ln.slew, (ln, n) => (ln.slew = n), (ln) => Math.round(ln.slew * 100) + '%', 0), watch: 'lane' }),
+    knob(null, { model: laneModel('speed', 'speed', SP.length, (ln) => ln.speed / (SP.length - 1), (ln, n) => (ln.speed = Math.round(n * (SP.length - 1))), (ln) => SP[ln.speed][0], 0), watch: 'lane' }),
+    knob(null, { model: laneModel('depth', 'depth', 0, (ln) => (ln.depth + 1) / 2, (ln, n) => (ln.depth = n * 2 - 1), (ln) => Math.round(ln.depth * 100) + '%', 0.75), watch: 'lane' }),
+  );
+  const grooveB = btn('groove', 'sm', () => { const l = ensureLane(); if (l < 0) return; S.lanes[l].groove = !S.lanes[l].groove; sendLane(l); });
+  const gw = h('div');
+  gw.style.display = 'grid';
+  gw.style.placeItems = 'center';
+  gw.append(grooveB);
+  ctl.append(gw);
+  const shapes = h('div', 'shapes');
+  for (const s of LANE_SHAPES) shapes.append(btn(s, 'xs', () => fillLane((ln) => laneShape(s, ln.len, ln.steps))));
+  for (const s of LANE_RANDOMS) shapes.append(btn(s, 'xs', () => fillLane((ln) => laneRandom(s, ln.len, ln.steps, (Math.random() * 1e9) | 0))));
+  // envelope shapes: the one picked is the brush for painted steps
+  const envs = h('div', 'shapes envs');
+  const envBs = ENV_SHAPES.map((s, k) => {
+    const b = btn(s, 'xs', () => { envBrush = k; drawSeq(); });
+    envs.append(b);
+    return b;
+  });
+  envs.append(btn('rnd', 'xs', () => fillLane((ln) => envRandom(ln.len, ln.steps, ln.shapes, (Math.random() * 1e9) | 0))));
+  el.append(top, steps, ctl, shapes, envs);
+  const envPath = (k, v) => {
+    let d = '';
+    for (let j = 0; j <= 24; j++) {
+      const t = j / 24;
+      d += (j ? 'L' : 'M') + (t * 100).toFixed(1) + ' ' + (50 - envShape(k, t) * v * 48).toFixed(1);
+    }
+    return d;
+  };
+
+  function drawSeq() {
+    const g = selG();
+    const ln = curLane();
+    el.classList.toggle('idle', g < 0);
+    name.textContent = g >= 0 ? 'seq · ' + fullName(S.sel) : 'seq · pick a knob';
+    pages.forEach((b, p) => {
+      b.classList.toggle('on', p === seqPage);
+      b.disabled = !ln && p > 0 ? true : ln ? p * 16 >= ln.len && p > 0 : false;
+    });
+    const pos = ln && S.status && S.status.playing ? S.status.lpos[laneOf(g)] : -1;
+    cells.forEach((c, i) => {
+      const si = seqPage * 16 + i;
+      const v = ln ? ln.steps[si] : 0;
+      const env = !!ln && !!ln.mode;
+      c.classList.toggle('env', env);
+      if (env) c.querySelector('path').setAttribute('d', v ? envPath(ln.shapes[si], v) : '');
+      const bar = c.firstChild;
+      bar.style.top = v >= 0 ? (50 - v * 50).toFixed(1) + '%' : '50%';
+      bar.style.bottom = v >= 0 ? '50%' : (50 + v * 50).toFixed(1) + '%';
+      bar.style.minHeight = '2px';
+      c.classList.toggle('off', !!ln && si >= ln.len);
+      c.classList.toggle('cur', si === pos);
+    });
+    grooveB.classList.toggle('on', !!ln && ln.groove);
+    drawSlew(ln);
+    const env = !!ln && !!ln.mode;
+    modeB.textContent = env ? 'env' : 'slide';
+    modeB.classList.toggle('on', env);
+    shapes.hidden = env;
+    envs.hidden = !env;
+    envBs.forEach((b, k) => b.classList.toggle('on', k === envBrush));
+  }
+  // simulate the sequencer's smoothing (same time constant as the engine: slew x 0.35 of a step)
+  function drawSlew(ln) {
+    if (!ln || ln.slew <= 0.001) { slewPath.setAttribute('d', ''); return; }
+    const K = 20;
+    const a = 1 - Math.exp(-1 / K / (ln.slew * 0.35));
+    const tgt = (i, t) => {
+      const v = ln.steps[i % ln.len];
+      return ln.mode ? v * envShape(ln.shapes[i % ln.len], t) : v;
+    };
+    let y = tgt(ln.len - 1, 1);
+    for (let w = 0; w < 2; w++) for (let i = 0; i < ln.len; i++) for (let k = 0; k < K; k++) y += (tgt(i, k / K) - y) * a; // settle
+    // run up to the visible page, then draw it
+    for (let i = 0; i < seqPage * 16; i++) for (let k = 0; k < K; k++) y += (tgt(i, k / K) - y) * a;
+    let d = '';
+    for (let i = 0; i < 16; i++) {
+      const si = seqPage * 16 + i;
+      if (si >= ln.len) break;
+      for (let k = 0; k < K; k++) {
+        y += (tgt(si, k / K) - y) * a;
+        d += (d ? 'L' : 'M') + ((i + k / K) * 100).toFixed(1) + ' ' + (50 - y * 50).toFixed(1);
+      }
+    }
+    slewPath.setAttribute('d', d);
+  }
+  el.draw = drawSeq;
+  watch('sel', drawSeq);
+  watch('lane', drawSeq);
+  drawSeq();
+}
+function fillLane(f) {
+  const l = ensureLane();
+  if (l < 0) return;
+  f(S.lanes[l]);
+  sendLane(l);
+}

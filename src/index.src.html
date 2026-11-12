@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>mi/dm</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b0c0a">
+<meta name="description" content="mi/dm: a six-voice drum machine for the browser.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+/*@CSS@*/
+</style>
+</head>
+<body>
+<div id="view">
+<div id="turn">turn your phone sideways</div>
+<div id="stage">
+  <div id="lcd">
+    <header id="hdr"></header>
+    <main>
+      <div class="col">
+        <div class="box col" id="perfwrap" style="flex:1">
+          <div id="perf"></div>
+        </div>
+      </div>
+      <div class="col"><div class="box" id="mutes" style="flex:1"></div></div>
+      <div class="box" id="seqwrap"><div id="seq"></div></div>
+      <div class="col" id="right">
+        <div id="tabs"></div>
+        <div id="page"></div>
+      </div>
+    </main>
+  </div>
+</div>
+</div>
+<script>
+/*@APP@*/
+</script>
+</body>
+</html>
