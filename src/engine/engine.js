@@ -1,10 +1,10 @@
 // mi/dm — top-level engine: six Plaits drum voices (WebAssembly), then level, pan, mute/solo and the
-// master (rush high-pass, volume, safety clip). process() allocates nothing. Parameters live in two
+// master (clipper, also in the WebAssembly; rush high-pass, volume, safety clip). process() allocates nothing. Parameters live in two
 // flat Float32Arrays:
 //   params  NUM_VOICES * NP  (voice blocks: the DSP's parameters, then level, trim, pan)
 //   master  MP               (tempo, mixer, sequencer)
 
-import { NUM_VOICES, NP, DSP_N, P, M, MUTE_STRIDE, defaultMaster } from './params.js';
+import { NUM_VOICES, NP, DSP_N, P, M, MUTE_STRIDE, CLIP_N, defaultMaster } from './params.js';
 import { kitToArray, INIT_KIT } from './kits.js';
 import { PlaitsBank } from './plaits.js';
 import { Svf, softclip } from './dsp.js';
@@ -19,6 +19,8 @@ export class Engine {
     this.master = Float32Array.from(defaultMaster());
     this.bank = new PlaitsBank(wasm);
     this.sent = new Float32Array(NUM_VOICES * DSP_N).fill(NaN); // last value given to the DSP
+    this.clipSent = new Float32Array(CLIP_N).fill(NaN);
+    this.clipOn = false;
     this.gL = new Float32Array(NUM_VOICES);
     this.gR = new Float32Array(NUM_VOICES);
     this.meter = new Float32Array(NUM_VOICES);
@@ -79,6 +81,14 @@ export class Engine {
       this.gL[v] = g * Math.cos(a) * Math.SQRT2;
       this.gR[v] = g * Math.sin(a) * Math.SQRT2;
     }
+    for (let i = 0; i < CLIP_N; i++) {
+      const x = m[M.clipOn + i];
+      if (x !== this.clipSent[i]) {
+        this.clipSent[i] = x;
+        this.bank.clipSet(i, x);
+      }
+    }
+    this.clipOn = m[M.clipOn] >= 0.5;
     const hp = m[M.mHp];
     this.hpOn = hp > 21;
     if (this.hpOn) {
@@ -109,6 +119,13 @@ export class Engine {
           mt = ax > mt ? ax : mt * 0.9995;
         }
         this.meter[v] = mt;
+      }
+      if (this.clipOn) {
+        const bL = this.bank.mL;
+        const bR = this.bank.mR;
+        for (let i = 0; i < k; i++) { bL[i] = outL[off + i]; bR[i] = outR[off + i]; }
+        this.bank.clip(k);
+        for (let i = 0; i < k; i++) { outL[off + i] = bL[i]; outR[off + i] = bR[i]; }
       }
       const mv = m[M.mVol];
       for (let i = 0; i < k; i++) {

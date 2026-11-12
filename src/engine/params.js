@@ -4,7 +4,7 @@
 // the voice's mixer settings. Values are stored in real units; the UI maps knob position 0..1 <-> value
 // via `curve`. One flat block per voice, so it maps 1:1 onto the C++ DrumVoice.
 
-import { DSP_SPEC, MODEL_NAMES } from './dspparams.js';
+import { DSP_SPEC, MODEL_NAMES, CLIP_SPEC } from './dspparams.js';
 
 export const NUM_VOICES = 6;
 export const VOICE_NAMES = ['kick', 'tom', 'perc', 'snare', 'cymbal', 'hihat'];
@@ -47,6 +47,8 @@ const MSPEC = [
   // master high-pass (rush rises it)
   ['mHp', 20, 2000, 20, 'exp', 'hp'],
   ['mVol', 0, 1.5, 0.5, 'lin', 'master'],
+  // master clipper (C++, in the wasm): clipOn, clipThresh, ... in the DSP's order
+  ...CLIP_SPEC.map(([id, min, max, def, curve, label]) => ['clip' + id[0].toUpperCase() + id.slice(1), min, max, def, curve, label]),
   // mixer: per voice mute/solo
   ...[0, 1, 2, 3, 4, 5].flatMap((v) => [
     [`mute${v}`, 0, 1, 0, 'int', `mute ${v + 1}`],
@@ -64,6 +66,7 @@ const MSPEC = [
   ['rushHp', 20, 2000, 600, 'exp', 'rush hp'],
   ...Array.from({ length: 16 }, (_, i) => [`rc${i}`, 0, 1, i / 15, 'lin', `curve ${i + 1}`]),
 ];
+export const CLIP_N = CLIP_SPEC.length; // M.clipOn + i is the clipper's parameter i
 export const MUTE_STRIDE = 2; // M.mute0 + v * MUTE_STRIDE, M.solo0 + v * MUTE_STRIDE
 export const GROOVES = ['swing 16', 'swing 8', 'shuffle', 'drunk'];
 export const RUSH_EVERY = [0, 1, 2, 4, 8]; // bars

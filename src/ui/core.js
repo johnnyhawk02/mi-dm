@@ -151,7 +151,7 @@ const NAMES = {
   model: MODEL_NAMES, swType: GROOVES, rushVoice: SHORT,
   rushEvery: RUSH_EVERY.map((b) => (b ? `${b} bar` : 'off')),
 };
-const ONOFF = new Set(['sustain']);
+const ONOFF = new Set(['sustain', 'clipOn', 'clipFlip', 'clipRectify']);
 function fmt(g, x = getG(g)) {
   const p = specOf(g);
   const id = p.id;
@@ -159,6 +159,8 @@ function fmt(g, x = getG(g)) {
   if (ONOFF.has(id) || /^(mute|solo)\d$/.test(id)) return x >= 0.5 ? 'on' : 'off';
   if (id === 'bpm') return x.toFixed(0) + ' bpm';
   if (/Freq$/.test(id) || id === 'mHp' || id === 'rushHp') return x >= 1000 ? (x / 1000).toFixed(2) + 'k' : x.toFixed(x < 100 ? 1 : 0) + (/Freq$/.test(id) ? 'hz' : '');
+  if (id === 'clipThresh' || id === 'clipInput' || id === 'clipOutput') return (x > 0 ? '+' : '') + x.toFixed(1) + 'db';
+  if (id === 'clipRatio') return x.toFixed(x < 10 ? 1 : 0) + ':1';
   if (id === 'trim') return (x > 0 ? '+' : '') + x.toFixed(1) + 'db';
   if (id === 'patLen' || id === 'rushLen' || id === 'rushRate') return x.toFixed(0);
   if (p.curve === 'bip') return (x > 0 ? '+' : '') + Math.round(x * 100);

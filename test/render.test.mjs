@@ -75,6 +75,21 @@ function beat() {
     `beat with ${models.size} models: peak ${s.pk.toFixed(3)} rms ${s.rms.toFixed(4)} tail ${tail.pk.toFixed(4)}`);
   if (outDir) writeWav(`${outDir}/beat.wav`, L, R, SR);
 }
+// master clipper: on, it squashes the positive half above the threshold and leaves the negative half
+{
+  const run = (on, flip = 0) => {
+    const e = new Engine(SR, WASM);
+    Object.assign(e.master, {});
+    e.master[M.clipOn] = on; e.master[M.clipThresh] = -20; e.master[M.clipRatio] = 20; e.master[M.clipFlip] = flip; e.master[M.mVol] = 1;
+    const n = SR, L = new Float32Array(n), R = new Float32Array(n);
+    e.trigger(0, 1); e.process(L, R, n);
+    let pos = 0, neg = 0; for (const x of L) { pos = Math.max(pos, x); neg = Math.min(neg, x); }
+    return { pos, neg };
+  };
+  const off = run(0), on = run(1), fl = run(1, 1);
+  check(on.pos < off.pos * 0.4 && Math.abs(on.neg - off.neg) < 1e-6 && fl.neg > off.neg * 0.4 && Math.abs(fl.pos - off.pos) < 1e-6,
+    `clipper: + peak ${off.pos.toFixed(3)} -> ${on.pos.toFixed(3)}, flipped - peak ${off.neg.toFixed(3)} -> ${fl.neg.toFixed(3)}, other half untouched`);
+}
 // speed
 {
   const e = new Engine(SR, WASM), n = SR * 10, L = new Float32Array(n), R = new Float32Array(n);

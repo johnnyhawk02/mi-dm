@@ -31,6 +31,14 @@ Every model also takes accent (scaled by each hit's velocity) and sustain (a fre
 no envelope). Open decay is the decay an open-hat step uses. Pick a drum's model on the voice page,
 or click the model box above its level.
 
+## Master clipper
+
+The mstr page has a master-bus clipper: it squashes one half of the waveform above a threshold by a
+ratio (rectify cuts it flat, flip works on the other half), with input, output and mix, and a curve
+that shows what it does. It is mi/dm's own C++ (`dsp/midm/master_clipper.*`, MIT), written after the
+behaviour of Jatin Chowdhury's [CHOW](https://github.com/Chowdhury-DSP/CHOW) distortion plugin. It
+contains none of CHOW's code, which is GPL-3.0. It is compiled into the same WebAssembly as the drums.
+
 ## Layout
 
 - `dsp/`: the drum DSP, plain C++ with no browser or Emscripten code (see `dsp/README.md`).

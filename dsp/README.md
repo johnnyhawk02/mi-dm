@@ -24,6 +24,10 @@ build (a JUCE VST3 plugin, a command-line renderer) unchanged.
   engine's overdrive drive). `kParameters` lists each one's id, label, range, default and taper, so a
   host can build its controls from it; the web page reads the same table out of the WebAssembly.
 
+- `midm/master_clipper.h`, `midm/master_clipper.cc`: the master-bus clipper (mi/dm's own code, MIT,
+  after the behaviour of the CHOW plugin, none of its GPL code): `Init`, `SetParameter`, and
+  `Process(left, right, n)` in place. `kClipperParameters` lists its controls.
+
 ## Building
 
 The DSP runs at a fixed 48 kHz (Plaits' `kSampleRate`). Define `TEST` when compiling: it selects

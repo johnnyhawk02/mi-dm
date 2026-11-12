@@ -6,6 +6,7 @@ project(midm_dsp CXX)
 
 add_library(midm_dsp STATIC
   midm/drum_voice.cc
+  midm/master_clipper.cc
   plaits/resources.cc
   stmlib/dsp/units.cc
   stmlib/utils/random.cc

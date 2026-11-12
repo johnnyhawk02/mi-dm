@@ -5,6 +5,7 @@
 #include <emscripten/emscripten.h>
 
 #include "midm/drum_voice.h"
+#include "midm/master_clipper.h"
 
 namespace {
 
@@ -13,6 +14,9 @@ const int kMaxRender = 128;
 
 midm::DrumVoice voices[kNumVoices];
 float buffer[kMaxRender];
+midm::MasterClipper clipper;
+float master_left[kMaxRender];
+float master_right[kMaxRender];
 
 bool valid(int v) { return v >= 0 && v < kNumVoices; }
 
@@ -25,6 +29,7 @@ EMSCRIPTEN_KEEPALIVE int md_max_render() { return kMaxRender; }
 
 EMSCRIPTEN_KEEPALIVE void md_init() {
   for (int v = 0; v < kNumVoices; ++v) voices[v].Init();
+  clipper.Init();
 }
 
 EMSCRIPTEN_KEEPALIVE void md_set(int v, int parameter, float value) {
@@ -45,6 +50,22 @@ EMSCRIPTEN_KEEPALIVE float* md_render(int v, int n) {
   if (valid(v) && n > 0) voices[v].Render(buffer, n);
   return buffer;
 }
+
+// master clipper: the page writes the mix into md_master_left/right, md_clip processes it in place
+EMSCRIPTEN_KEEPALIVE float* md_master_left() { return master_left; }
+EMSCRIPTEN_KEEPALIVE float* md_master_right() { return master_right; }
+EMSCRIPTEN_KEEPALIVE void md_clip_set(int parameter, float value) { clipper.SetParameter(parameter, value); }
+EMSCRIPTEN_KEEPALIVE void md_clip(int n) {
+  if (n > kMaxRender) n = kMaxRender;
+  if (n > 0) clipper.Process(master_left, master_right, n);
+}
+EMSCRIPTEN_KEEPALIVE int md_clip_param_count() { return midm::NUM_CLIPPER_PARAMETERS; }
+EMSCRIPTEN_KEEPALIVE const char* md_clip_param_id(int i) { return midm::kClipperParameters[i].id; }
+EMSCRIPTEN_KEEPALIVE const char* md_clip_param_label(int i) { return midm::kClipperParameters[i].label; }
+EMSCRIPTEN_KEEPALIVE float md_clip_param_min(int i) { return midm::kClipperParameters[i].min; }
+EMSCRIPTEN_KEEPALIVE float md_clip_param_max(int i) { return midm::kClipperParameters[i].max; }
+EMSCRIPTEN_KEEPALIVE float md_clip_param_def(int i) { return midm::kClipperParameters[i].def; }
+EMSCRIPTEN_KEEPALIVE int md_clip_param_taper(int i) { return midm::kClipperParameters[i].taper; }
 
 // parameter table, so the page builds its controls from the DSP's own ranges
 EMSCRIPTEN_KEEPALIVE int md_param_count() { return midm::NUM_PARAMETERS; }
